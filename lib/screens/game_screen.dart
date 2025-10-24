@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async'; // Para el Timer
 import '../game/maze_widget.dart'; // Importamos el widget
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 // Importaciones para el Paso 4 (las activaremos luego)
 // import 'package:firebase_auth/firebase_auth.dart';
@@ -105,6 +108,54 @@ class _GameScreenState extends State<GameScreen> {
         _winGame();
       }
     }
+
+    Future<void> saveScore(String mapId, int newTime) async {
+  try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return; // No hay usuario, no se puede guardar
+
+    // 1. Obtenemos el username que guardamos durante el registro
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    final username = userDoc.data()?['username'] ?? user.email ?? 'Anónimo';
+
+    // 2. Referencia al documento de puntuación del usuario
+    final scoreRef = FirebaseFirestore.instance
+        .collection('rankings')
+        .doc(mapId)
+        .collection('scores')
+        .doc(user.uid); // Usamos el UID del usuario como ID
+
+    final currentScoreDoc = await scoreRef.get();
+
+    if (currentScoreDoc.exists) {
+      // 3. Si ya existe, solo actualizamos si el tiempo es MEJOR (menor)
+      int existingTime = currentScoreDoc.data()!['time_ms'];
+      if (newTime < existingTime) {
+        await scoreRef.update({
+          'time_ms': newTime,
+          'last_updated': FieldValue.serverTimestamp(),
+        });
+      }
+    } else {
+      // 4. Si no existe, creamos el documento
+      await scoreRef.set({
+        'username': username,
+        'time_ms': newTime,
+        'last_updated': FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (e) {
+    // Opcional: mostrar un error si no se pudo guardar
+    print("Error guardando puntuación: $e");
+  }
+}
+
+
+
   }
 
   bool _isValidMove(int row, int col) {
@@ -120,7 +171,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   // 4. Lógica de victoria
-  void _winGame() {
+  void _winGame() async {
     _stopwatch.stop();
     _timer.cancel();
     _gameFinished = true;

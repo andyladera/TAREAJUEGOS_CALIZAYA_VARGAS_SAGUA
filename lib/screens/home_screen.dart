@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../game/maze_maps.dart'; // Importamos los mapas
 import 'game_screen.dart'; // Importamos la pantalla de juego
+import 'ranking_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -67,7 +68,14 @@ class HomeScreen extends StatelessWidget {
             // --- BOTÓN DE RANKING (Aún no funciona) ---
             OutlinedButton(
               onPressed: () {
-                // TODO: Paso 4
+                // --- MODIFICAR AQUÍ ---
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RankingScreen(),
+                  ),
+                );
+                // -----------------------
               },
               child: const Text('Ver Rankings'),
             ),
