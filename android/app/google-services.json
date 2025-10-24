@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "174851894831",
+    "project_id": "laberinto-app-ab236",
+    "storage_bucket": "laberinto-app-ab236.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:174851894831:android:ed2c018522d0ca07c0e0da",
+        "android_client_info": {
+          "package_name": "com.example.laberinto"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKIVUeSHnzLqyX5N4h9xOmti4QXLeILlc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
