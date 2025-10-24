@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -65,4 +62,14 @@ class DefaultFirebaseOptions {
     storageBucket: 'laberinto-app-ab236.firebasestorage.app',
     iosBundleId: 'com.example.laberinto',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyDrFMfCxdHe85KJuFlajfIKObvNhqDkHkE',
+    appId: '1:174851894831:web:26c6f74f0387b668c0e0da',
+    messagingSenderId: '174851894831',
+    projectId: 'laberinto-app-ab236',
+    authDomain: 'laberinto-app-ab236.firebaseapp.com',
+    storageBucket: 'laberinto-app-ab236.firebasestorage.app',
+  );
+
 }
