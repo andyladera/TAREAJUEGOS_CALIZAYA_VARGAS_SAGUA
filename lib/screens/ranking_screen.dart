@@ -42,27 +42,54 @@ class RankingList extends StatelessWidget {
   final String mapId;
   const RankingList({Key? key, required this.mapId}) : super(key: key);
 
-  // Función para formatear el tiempo (ms a SS.ms)
+  // Función para formatear el tiempo (MM:SS:ms)
   String _formatTime(int milliseconds) {
-    final seconds = (milliseconds / 1000).toStringAsFixed(3);
-    return '$seconds s';
+    int minutes = (milliseconds ~/ 60000);
+    int seconds = ((milliseconds % 60000) ~/ 1000);
+    int millis = (milliseconds % 1000);
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}.${millis.toString().padLeft(3, '0')}';
+  }
+
+  // Devuelve un trofeo para el Top 3, o el número para los demás
+  Widget _getRankWidget(int rank) {
+    switch (rank) {
+      case 1:
+        return Icon(Icons.emoji_events, color: Colors.amber[600], size: 32);
+      case 2:
+        return Icon(Icons.emoji_events, color: Colors.grey[400], size: 32);
+      case 3:
+        return Icon(Icons.emoji_events, color: Colors.brown[400], size: 32);
+      default:
+        return SizedBox(
+          width: 32,
+          child: Center(
+            child: Text(
+              '$rank.',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 4. La Query a Firestore
+    // La Query a Firestore
     final query = FirebaseFirestore.instance
         .collection('rankings')
         .doc(mapId)
         .collection('scores')
         .orderBy('time_ms') // Ordenar por tiempo (el más rápido primero)
-        .limit(20);          // Traer solo el Top 20
+        .limit(20); // Traer solo el Top 20
 
-    // 5. Usamos StreamBuilder para datos en tiempo real
+    // Usamos StreamBuilder para datos en tiempo real
     return StreamBuilder<QuerySnapshot>(
       stream: query.snapshots(),
       builder: (context, snapshot) {
-
         // Estado de carga
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -73,34 +100,63 @@ class RankingList extends StatelessWidget {
           return const Center(child: Text('Error al cargar datos'));
         }
 
-        // Sin datos o lista vacía
+        // Sin datos o lista vacía (con el nuevo diseño)
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('Aún no hay puntajes para este mapa'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.inbox_outlined, size: 80, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Aún no hay puntajes',
+                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                ),
+                Text(
+                  '¡Sé el primero en marcar un récord!',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          );
         }
 
-        // 6. Tenemos datos: construimos la lista
+        // Tenemos datos: construimos la lista con el nuevo diseño
         final docs = snapshot.data!.docs;
 
         return ListView.builder(
+          padding: const EdgeInsets.all(8.0),
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
+            final rank = index + 1;
 
-            return ListTile(
-              // Posición (1., 2., 3.)
-              leading: Text(
-                '${index + 1}.',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            return Card(
+              elevation: 2.0,
+              margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.0),
               ),
-              // Nombre de usuario
-              title: Text(
-                data['username'] ?? 'Anónimo',
-                style: const TextStyle(fontSize: 16),
-              ),
-              // Tiempo
-              trailing: Text(
-                _formatTime(data['time_ms'] ?? 0),
-                style: const TextStyle(fontSize: 16, color: Colors.blue, fontWeight: FontWeight.w500),
+              child: ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                leading: _getRankWidget(rank),
+                title: Text(
+                  data['username'] ?? 'Anónimo',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
+                ),
+                trailing: Text(
+                  _formatTime(data['time_ms'] ?? 0),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).primaryColor,
+                    fontFamily: 'monospace', // Le da un look de cronómetro
+                  ),
+                ),
               ),
             );
           },
