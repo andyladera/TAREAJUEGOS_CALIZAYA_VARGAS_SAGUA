@@ -18,8 +18,19 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Laberinto App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+      theme: ThemeData.dark().copyWith(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+          primary: Colors.deepPurple[300]!,
+          secondary: Colors.tealAccent[200]!,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        textTheme: Typography.material2021().white.copyWith(
+              titleLarge: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.bold),
+              bodyMedium: const TextStyle(fontSize: 16),
+            ),
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,

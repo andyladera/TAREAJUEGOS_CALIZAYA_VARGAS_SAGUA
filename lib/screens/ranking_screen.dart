@@ -150,10 +150,10 @@ class RankingList extends StatelessWidget {
                 ),
                 trailing: Text(
                   _formatTime(data['time_ms'] ?? 0),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
+                    color: Colors.white,
                     fontFamily: 'monospace', // Le da un look de cronómetro
                   ),
                 ),

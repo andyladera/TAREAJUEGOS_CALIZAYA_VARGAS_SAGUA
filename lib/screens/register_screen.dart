@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterScreen extends StatefulWidget {
-  final VoidCallback showLoginScreen; // Función para cambiar a Login
+  final VoidCallback showLoginScreen;
   const RegisterScreen({Key? key, required this.showLoginScreen}) : super(key: key);
 
   @override
@@ -12,46 +12,49 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
-  final _usernameController = TextEditingController(); // Para el nombre de usuario
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   String _errorMessage = '';
+  bool _isLoading = false;
 
-  Future<void> signUp() async {
+  Future<void> _signUp() async {
+    if (!mounted) return;
     setState(() {
+      _isLoading = true;
       _errorMessage = '';
     });
 
     if (_usernameController.text.trim().isEmpty) {
-       setState(() {
+      setState(() {
         _errorMessage = 'Por favor ingresa un nombre de usuario';
+        _isLoading = false;
       });
       return;
     }
 
     try {
-      // 1. Crear el usuario en Firebase Auth
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // 2. Guardar datos adicionales (username) en Firestore
       if (userCredential.user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .set({
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
           'username': _usernameController.text.trim(),
           'email': _emailController.text.trim(),
         });
       }
-
-      // Si llegamos aquí, el registro fue exitoso (el 'AuthGate' nos moverá al home)
-
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.message ?? 'Ocurrió un error';
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -65,50 +68,112 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Registro')),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              Text(
+                'Crea tu Cuenta',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Completa tus datos para empezar',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 40),
+              _buildTextField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                labelText: 'Email',
+                icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 10),
-              TextField(
+              const SizedBox(height: 16),
+              _buildTextField(
                 controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Nombre de Usuario (para ranking)'),
+                labelText: 'Nombre de Usuario',
+                icon: Icons.person_outline,
               ),
-              const SizedBox(height: 10),
-              TextField(
+              const SizedBox(height: 16),
+              _buildTextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Contraseña (mín 6 caracteres)'),
+                labelText: 'Contraseña (mín. 6 caracteres)',
+                icon: Icons.lock_outline,
                 obscureText: true,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               if (_errorMessage.isNotEmpty)
-                Text(
-                  _errorMessage,
-                  style: const TextStyle(color: Colors.red),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24.0),
+                  child: Text(
+                    _errorMessage,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.colorScheme.error, fontSize: 14),
+                  ),
                 ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: signUp,
-                child: const Text('Registrarse'),
-              ),
-              const SizedBox(height: 10),
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ElevatedButton(
+                      onPressed: _signUp,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        backgroundColor: theme.colorScheme.primary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                      ),
+                      child: const Text('Registrarse', style: TextStyle(fontSize: 16)),
+                    ),
+              const SizedBox(height: 16),
               TextButton(
-                onPressed: widget.showLoginScreen, // Llama a la función
-                child: const Text('¿Ya tienes cuenta? Inicia Sesión'),
-              )
+                onPressed: widget.showLoginScreen,
+                child: Text(
+                  '¿Ya tienes cuenta? Inicia Sesión',
+                  style: TextStyle(color: theme.colorScheme.secondary),
+                ),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+  }) {
+    final theme = Theme.of(context);
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: labelText,
+        prefixIcon: Icon(icon, color: theme.colorScheme.secondary),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+        ),
+      ),
+      obscureText: obscureText,
+      keyboardType: keyboardType,
     );
   }
 }

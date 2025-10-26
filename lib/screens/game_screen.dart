@@ -27,11 +27,9 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   late PlayerPosition _playerPos;
   late Stopwatch _stopwatch;
-  late Timer _timer; // Para actualizar la UI del cronómetro
+  late Timer _timer;
   String _formattedTime = '00:00:000';
   bool _gameFinished = false;
-
-  // Usamos FocusNode para capturar los eventos del teclado
   final FocusNode _focusNode = FocusNode();
 
   @override
@@ -39,14 +37,11 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     _playerPos = _findStartPosition();
     _startGameTimer();
-
-    // Asegurarnos de que el widget pueda recibir foco
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusScope.of(context).requestFocus(_focusNode);
     });
   }
 
-  // 1. Iniciar el cronómetro
   void _startGameTimer() {
     _stopwatch = Stopwatch()..start();
     _timer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
@@ -65,7 +60,6 @@ class _GameScreenState extends State<GameScreen> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}:${millis.toString().padLeft(3, '0')}';
   }
 
-  // 2. Encontrar la posición '8' (Inicio) en el mapa
   PlayerPosition _findStartPosition() {
     for (int r = 0; r < widget.map.length; r++) {
       for (int c = 0; c < widget.map[r].length; c++) {
@@ -74,7 +68,7 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
     }
-    return PlayerPosition(0, 0); // Fallback
+    return PlayerPosition(0, 0);
   }
 
   @override
@@ -85,9 +79,8 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  // 3. Lógica de movimiento (¡reutilizada por todos los controles!)
   void _movePlayer(LogicalKeyboardKey key) {
-    if (_gameFinished) return; // Si el juego terminó, no moverse
+    if (_gameFinished) return;
 
     int newRow = _playerPos.row;
     int newCol = _playerPos.col;
@@ -97,13 +90,38 @@ class _GameScreenState extends State<GameScreen> {
     if (key == LogicalKeyboardKey.arrowLeft) newCol--;
     if (key == LogicalKeyboardKey.arrowRight) newCol++;
 
-    // Verificación de colisión
+    _updatePlayerPosition(newRow, newCol);
+  }
+
+  void _movePlayerWithButtons(String direction) {
+    if (_gameFinished) return;
+
+    int newRow = _playerPos.row;
+    int newCol = _playerPos.col;
+
+    switch (direction) {
+      case 'up':
+        newRow--;
+        break;
+      case 'down':
+        newRow++;
+        break;
+      case 'left':
+        newCol--;
+        break;
+      case 'right':
+        newCol++;
+        break;
+    }
+    _updatePlayerPosition(newRow, newCol);
+  }
+
+  void _updatePlayerPosition(int newRow, int newCol) {
     if (_isValidMove(newRow, newCol)) {
       setState(() {
         _playerPos = PlayerPosition(newRow, newCol);
       });
 
-      // Verificación de victoria
       if (widget.map[newRow][newCol] == 9) {
         _winGame();
       }
@@ -111,46 +129,49 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   bool _isValidMove(int row, int col) {
-    // ¿Está dentro de los límites del mapa?
     if (row < 0 ||
         row >= widget.map.length ||
         col < 0 ||
         col >= widget.map[0].length) {
       return false;
     }
-    // ¿Es un muro (1)?
     if (widget.map[row][col] == 1) {
       return false;
     }
     return true;
   }
 
-  // 4. Lógica de victoria
   void _winGame() async {
+    if (_gameFinished) return;
     _stopwatch.stop();
     _timer.cancel();
-    _gameFinished = true;
+    setState(() {
+      _gameFinished = true;
+    });
 
     final int finalTimeMs = _stopwatch.elapsedMilliseconds;
-
-    // ¡Llamamos a la función para guardar el tiempo!
     await saveScore(widget.mapId, finalTimeMs);
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('¡Ganaste!'),
-        content: Text('Tu tiempo: $_formattedTime'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Cierra el diálogo
-              Navigator.of(context).pop(); // Vuelve al Home
-            },
-            child: const Text('OK'),
-          ),
-        ],
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('¡Ganaste! Tu tiempo: $_formattedTime',
+            style:
+                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.green,
+        duration: const Duration(days: 1), // Persistent
+        action: SnackBarAction(
+          label: 'VOLVER AL MENÚ',
+          textColor: Colors.white,
+          onPressed: () {
+            if (mounted) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              Navigator.of(context).pop();
+            }
+          },
+        ),
       ),
     );
   }
@@ -204,120 +225,101 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // RawKeyboardListener es el widget clave para la entrada de teclado
-    return RawKeyboardListener(
-      autofocus: true,
-      focusNode: _focusNode,
-      onKey: (RawKeyEvent event) {
-        // Nos aseguramos de que sea un evento de "tecla presionada"
-        if (event is RawKeyDownEvent) {
-          _movePlayer(event.logicalKey);
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('Mapa: ${widget.mapId}'),
-          // Mostramos el tiempo en la AppBar
-          actions: [
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 20.0),
-                child: Text(
-                  _formattedTime,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-            )
-          ],
-        ),
-        
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Usamos un Column para poner el juego ARRIBA y los controles ABAJO
-        body: Column(
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text('Mapa: ${widget.mapId.replaceAll('_', ' ')}', style: theme.textTheme.titleLarge),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: RawKeyboardListener(
+        focusNode: _focusNode,
+        onKey: (event) {
+          if (event is RawKeyDownEvent) {
+            _movePlayer(event.logicalKey);
+          }
+        },
+        child: Column(
           children: [
-            // 1. El juego (envuelto en Expanded para que ocupe el espacio)
+            _buildTimerDisplay(theme),
             Expanded(
-              child: GestureDetector(
-                // --- El código de gestos de swipe se queda igual ---
-                onVerticalDragEnd: (details) {
-                  if (details.primaryVelocity == null) return;
-                  if (details.primaryVelocity! < -100) { 
-                    _movePlayer(LogicalKeyboardKey.arrowUp);
-                  } else if (details.primaryVelocity! > 100) {
-                    _movePlayer(LogicalKeyboardKey.arrowDown);
-                  }
-                },
-                onHorizontalDragEnd: (details) {
-                  if (details.primaryVelocity == null) return;
-                  if (details.primaryVelocity! < -100) {
-                    _movePlayer(LogicalKeyboardKey.arrowLeft);
-                  } else if (details.primaryVelocity! > 100) {
-                    _movePlayer(LogicalKeyboardKey.arrowRight);
-                  }
-                },
-                // --- Fin del código de gestos ---
-                
-                child: Container(
-                  color: Colors.transparent, // Para que el swipe funcione en áreas vacías
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: widget.map[0].length / widget.map.length,
-                      child: MazeWidget(
-                        map: widget.map,
-                        playerPos: _playerPos,
-                      ),
-                    ),
-                  ),
+              child: Center(
+                child: MazeWidget(
+                  map: widget.map,
+                  playerPos: _playerPos,
+                  wallColor: theme.colorScheme.secondary.withOpacity(0.8),
+                  pathColor: theme.scaffoldBackgroundColor,
+                  playerColor: theme.colorScheme.primary,
+                  goalColor: Colors.greenAccent,
+                  startColor: Colors.blueAccent,
                 ),
               ),
             ),
-
-            // 2. Los controles (el D-Pad visible)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
-              color: Colors.grey[200], // Un fondo para el área de control
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // Botón Izquierda
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    iconSize: 40,
-                    onPressed: () => _movePlayer(LogicalKeyboardKey.arrowLeft),
-                  ),
-
-                  // Columna para Arriba y Abajo
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Botón Arriba
-                      IconButton(
-                        icon: const Icon(Icons.arrow_upward),
-                        iconSize: 40,
-                        onPressed: () => _movePlayer(LogicalKeyboardKey.arrowUp),
-                      ),
-                      const SizedBox(height: 20), // Espacio
-                      // Botón Abajo
-                      IconButton(
-                        icon: const Icon(Icons.arrow_downward),
-                        iconSize: 40,
-                        onPressed: () => _movePlayer(LogicalKeyboardKey.arrowDown),
-                      ),
-                    ],
-                  ),
-
-                  // Botón Derecha
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward),
-                    iconSize: 40,
-                    onPressed: () => _movePlayer(LogicalKeyboardKey.arrowRight),
-                  ),
-                ],
-              ),
-            ),
+            _buildTouchControls(theme),
           ],
         ),
-        // --- FIN DE LA MODIFICACIÓN ---
+      ),
+    );
+  }
+
+  Widget _buildTimerDisplay(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Text(
+        _formattedTime,
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.bold,
+          color: theme.colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTouchControls(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildControlButton(theme, Icons.arrow_upward, 'up'),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildControlButton(theme, Icons.arrow_back, 'left'),
+              const SizedBox(width: 80),
+              _buildControlButton(theme, Icons.arrow_forward, 'right'),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildControlButton(theme, Icons.arrow_downward, 'down'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton(ThemeData theme, IconData icon, String direction) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: ElevatedButton(
+        onPressed: () => _movePlayerWithButtons(direction),
+        style: ElevatedButton.styleFrom(
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(20),
+          backgroundColor: theme.colorScheme.secondary,
+          foregroundColor: theme.colorScheme.onSecondary,
+        ),
+        child: Icon(icon, size: 30),
       ),
     );
   }
